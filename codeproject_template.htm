@@ -1,0 +1,265 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--------------------------------------------------------------------------->  
+<!--                           INTRODUCTION                                
+
+ The Code Project article submission template (HTML version)
+
+Using this template will help us post your article sooner. To use, just 
+follow the 3 easy steps below:
+ 
+     1. Fill in the article description details
+     2. Add links to your images and downloads
+     3. Include the main article text
+
+That's all there is to it! All formatting will be done by our submission
+scripts and style sheets. 
+
+-->  
+<!--------------------------------------------------------------------------->  
+<!--                        IGNORE THIS SECTION                            -->
+<html>
+<head>
+<title>The Code Project</title>
+<Style>
+BODY, P, TD { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt }
+H2,H3,H4,H5 { color: #ff9900; font-weight: bold; }
+H2 { font-size: 13pt; }
+H3 { font-size: 12pt; }
+H4 { font-size: 10pt; color: black; }
+PRE { BACKGROUND-COLOR: #FBEDBB; FONT-FAMILY: "Courier New", Courier, mono; WHITE-SPACE: pre; }
+CODE { COLOR: #990000; FONT-FAMILY: "Courier New", Courier, mono; }
+</style>
+<link rel="stylesheet" type="text/css" href="http://www.codeproject.com/App_Themes/Std/CodeProject.css">
+</head>
+<body bgcolor="#FFFFFF" color=#000000>
+<!--------------------------------------------------------------------------->  
+
+
+<!-------------------------------     STEP 1      --------------------------->
+<!--  Fill in the details (CodeProject will reformat this section for you) -->
+
+<pre>
+Title:       OMRON PLC TCP interface
+Author:      Joan Magnet
+Email:       mcnets@gmail.com	
+Language:    C#
+Platform:    Windows
+Technology:  .Net Framework 4.5, Visual Studio 2013
+Level:       Intermediate
+Description: Base class for OMRON PLC communications.	
+Section      General Reading
+SubSection   Hardware &amp; System
+License:     (<a href="http://www.codeproject.com/info/licenses.aspx">CPOL</a>)
+</pre>
+
+<!-------------------------------     STEP 2      --------------------------->
+<!--  Include download and sample image information.                       --> 
+
+<ul class=download>
+<li><a href="mcOMRON_project.zip">Download project code - V1 6 Kb</a></li>
+<li><a href="mcOMRON_demo.zip">Download source code - V1 28 Kb</a></li>
+</ul>
+
+<p><img src="mcOMRON.png" alt="mcONROM ScreenShot" width=597 height=521></p>
+
+
+<!-------------------------------     STEP 3      --------------------------->
+
+<!--  Add the article text. Please use simple formatting (<h2>, <p> etc)   -->
+
+<h2>Introduction</h2>
+
+<p>In our company we use OMRON PLC to manage our production machines. Initially we had a SCADA application to obtain data stored in the PLC. The truth is that I wanted a simple solution that allows me to create windows services to get data from PLC, instead of using a dedicated PC for this task. I tried CX-Server Lite, but its components require a WindowsForm application, and can not be used in Windows services. This is the reason why I decided to write this class.</p>
+<p>The library consists of a main class, a transport layer class, currently for TCP, and one class to manage the 'FINS' orders via TCP. The transport and orders layer are based on two interfaces, ITransport, IFINSCommand. This will easily allow to add more functionality. (UDP, Serial, ...)</p>
+
+<h2>Background</h2>
+
+<p>This class uses synchronous sockets to communicate with the PLC. Keep in mind that a communication issue could block the current thread. I think it is advisable use a secondary thread to avoid this problem. As you can see, this class does not launch message box windows neither console messages, most functions return <b>bool</b> values and you should use <code>.LastError()</code> function to check the result.</p>
+<p>The current version implements 3 PLC messages:</p>
+<ul>
+	<li>[1,1] MEMORY AREA READ <code>finsMemoryAreaRead()</code></li>
+	<li>[1,2] MEMORY AREA WRITE <code>finsMemoryAreaWrite()</code></li>
+	<li>[5,1] CONTROLLER DATA READ <code>finsConnectionDataRead()</code></li>
+</ul>
+<p>And some methods to deal with DM area:</p>
+	<ul>
+		<li><code>ReadDM()</code></li>
+		<li><code>ReadDMs()</code></li>
+		<li><code>WriteDM()</code></li>
+		<li><code>ClearDMs()</code></li>
+	</ul>
+<p>And with CIO Bit memory area</p>
+	<ul>
+		<li><code>ReadCIOBit()</code></li>
+		<li><code>ReadCIOBit()</code></li>
+	</ul>
+<p>Take a look at <i><b>tcpFINSCommand.cs</b></i> and you'll notice that it's really easy to add new methods for another PLC messages.</p>
+
+
+<h2>Using the code</h2>
+
+<p>First and foremost add a reference for the <i><b>mc.Omron.vx.xx.dll</b></i> to your project</p>
+
+<p>Add one mcOMRON.OmronPLC object to your project and initialize it using one transport type. (Only TCP is available by now.):</p>
+
+<pre lang="C#">
+public partial class TestPLC : Form
+{
+	//
+	// plc class
+	//
+	mcOMRON.OmronPLC <var>plc</var>;
+
+	/// <summary>
+	/// constructor
+	/// </summary>
+	public TestPLC()
+	{
+		InitializeComponent();
+
+		// initielize a new plc object with tcp transport layer
+		//
+		this.plc = new mcOMRON.OmronPLC(mcOMRON.TransportType.Tcp);
+	}
+...
+</pre>
+
+<p>Before to <code>Connect()</code> with the PLC you must set up the tcp connection parameters. Due the <b>OmronPlc</b> uses the interface class, you must cast it to the corresponding <b>tcpFINSCommand</b> class and then call <code>SetTCPParams</code> method.</p>
+
+<pre lang="C#">
+/// <summary>
+/// try to connect to the plc
+/// </summary>
+private void Connect()
+{
+	if (ip.Text == "") return;
+	if (port.Text == "") return;
+
+	try
+	{
+		// set ip:port for command layer, may cast to tcpFINSCommand to set ip and port
+		//
+		mcOMRON.tcpFINSCommand tcpCommand = ((mcOMRON.tcpFINSCommand)plc.FinsCommand);
+		tcpCommand.SetTCPParams(IPAddress.Parse(ip.Text), Convert.ToInt32(port.Text));
+				
+		// connection
+		//
+		if (! plc.Connect())
+		{
+			throw new Exception(plc.LastError);
+		}
+...</pre>
+
+<p>By default this class uses Byte, UInt16 and UInt32 variables, and arrays are passed <b><i>by ref</i></b></p>
+
+<pre lang="C#">
+/// <summary>
+/// read a single DM
+/// </summary>
+private void ReadDM()
+{
+	if (dm_position.Text == "") return;
+	UInt16 dmval=0;
+	try
+	{
+		if (! plc.ReadDM(Convert.ToUInt16(dm_position.Text), ref dmval))
+		{
+			throw new Exception(plc.LastError);
+		}
+
+		dm_value.Text = dmval.ToString();
+		
+		dialog.Text = plc.LastDialog("READ DM");
+		dialog.AppendText("DM VALUE: " + dmval.ToString());
+	}
+	catch (Exception ex)
+	{
+		MessageBox.Show("ReadDM() Error: " + ex.Message);
+	}
+}
+</pre>
+
+<p>As you can see in the screenshot, I've added a debug functionality. If you call <code>LastDialog()</code> after sending any command, you can get the dialog between PC and PLC in hexadecimal format.</p>
+
+<h2>Points of Interest</h2>
+
+<h4>Would you like to add a handler for new PLC message?</h4>
+
+<p>Let me show you the actual method: <code>MemoryAreaWrite()</code></p>
+
+<pre lang="C#">
+/// <summary>
+/// MEMORY AREA WRITE
+/// </summary>
+/// <param name="area"></param>
+/// <param name="address"></param>
+/// <param name="count"></param>
+/// <param name="data"></param>
+/// <returns></returns>
+public bool MemoryAreaWrite(MemoryArea area, UInt16 address, UInt16 count, ref Byte [] data)
+{
+	try
+	{
+		// command & subcomand
+		//
+		this.MC = 0x01;
+		this.SC = 0x02;
+
+		// memory area
+		//
+		this.cmdFins[F_PARAM] = (Byte)area;
+		
+		// address
+		//
+		this.cmdFins[F_PARAM + 1] = (Byte)((address >> 8) & 0xFF);
+		this.cmdFins[F_PARAM + 2] = (Byte)(address & 0xFF);
+
+		// special flag
+		//
+		this.cmdFins[F_PARAM + 3] = (Byte)(0);
+
+		// count items
+		//
+		this.cmdFins[F_PARAM + 4] = (Byte)((count >> 8) & 0xFF);
+		this.cmdFins[F_PARAM + 5] = (Byte)(count & 0xFF);
+
+		// set command lenght (12 + additional params)
+		//
+		this.finsCommandLen = 18;
+
+		// send the message
+		//
+		return FrameSend(data);
+	}
+	catch (Exception ex)
+	{
+		this._lastError = ex.Message;
+		return false;
+	}
+}
+</pre>
+
+<p>You must set Main code and Subcode properties and use <code>cmdFins[]</code> array to set additional parameters. Finally set the (<code>finsCommandLen</code>) command length and call <code>FrameSend()</code> to send the message.</p>
+
+<h2>History</h2>
+
+<h4>October 2016</h4>
+<ul>
+	<li>There was a bug in MemoryArea values, I was using older values.</li>
+	<li>I have added specific funtions for signed values.</li>
+</ul>
+
+<h4>November 2016</h4>
+<ul>
+	<li>I have added some functions to BTool class to work with bits. (IsBitSet, SetBit, UnsetBit)</li>
+	<li>I have added two methods to access CIO Bit memory area.</li>
+</ul>
+
+<p>This is it by now.</p>
+<p>Please feel free to contact me if you have any questions about this class.</p>
+
+<!-------------------------------    That's it!   --------------------------->
+</body>
+
+</html>
+
