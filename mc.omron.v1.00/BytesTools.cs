@@ -267,4 +267,6 @@ namespace mcOMRON
 	}
 
 	#endregion
+
+	// this is just to check git changes
 }
