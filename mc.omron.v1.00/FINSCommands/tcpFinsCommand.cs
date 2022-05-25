@@ -489,9 +489,10 @@ namespace mcOMRON
 
 			// checks response error
 			//
-			if (respNADS[15] != 0)
-			{
-				this._lastError = "NASD command error: " + respNADS[15];
+			if (respNADS[15] != 0) {
+				if (!FinsErrorCodes.ErrorCodes.TryGetValue(respNADS[15], out string errorDescription))
+					errorDescription = "Unknown error";
+				this._lastError = "NADS command error: " + respNADS[15] + "(" + errorDescription + ")";
 
 				// no more actions
 				//
